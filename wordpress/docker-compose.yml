@@ -1,0 +1,62 @@
+services:
+  db:
+    image: mysql:8.0
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_DATABASE: wordpress
+      MYSQL_USER: wordpress
+      MYSQL_PASSWORD: wordpress
+      MYSQL_ROOT_PASSWORD: root
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - wp_network
+    
+  wordpress:
+    image: wordpress
+    ports:
+      - "8080:80"
+    environment:
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: wordpress
+      WODPRESS_DB_NAME: wordpress
+      WORDPRESS_DEBUG: true
+      D2CMS_WP_DEV_TOKEN: 3f6ad79b8251405a9793a0eea980fc82
+      D2CMS_WP_API_USER: d2cms
+    depends_on:
+      - db
+    volumes:
+      - ./mu-plugins:/var/www/html/wp-content/mu-plugins
+      - wp_files:/var/www/html
+    networks:
+      - wp_network
+    
+
+  # Automated the "installation" and creates a static user
+  initializer:
+    image: wordpress:cli
+    environment:
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: wordpress
+      WORDPRESS_DB_NAME: wordpress
+    depends_on:
+      - wordpress
+    volumes:
+      - wp_files:/var/www/html
+    networks:
+      - wp_network
+    working_dir: /var/www/html
+    command: >
+      sh -c '
+      wp core install --path="./" --url="http://localhost:8080" --title="Docs Test" --admin_user="d2cms" --admin_password="d2cms" --admin_email="info@example.com" --skip-email;
+      '
+
+volumes:
+  db_data:
+  wp_files:
+
+networks:
+  wp_network:
