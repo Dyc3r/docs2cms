@@ -7,11 +7,9 @@ from uuid import UUID, uuid7
 
 import frontmatter
 from frontmatter import Post
+from markdown_it import MarkdownIt
 
-from .config import D2CMSConfig
-from .http import make_client
-
-ContentType = Literal["post", "page", "doc"]
+ContentType = Literal["posts", "pages", "docs"]
 
 
 @dataclass
@@ -21,7 +19,7 @@ class D2CMSFrontmatter:
     title: str # Post title
     slug: str # Post slug (used in URL & doc file name)
     wordpress_id: int | None = None # WordPress generated ID
-    hash: str | None = None # hashed value of the doc for identifying diffs
+    document_hash: str | None = None # hashed value of the doc for identifying diffs
     parent_key: UUID | None = None # the document_key of the parent object
     tags: list[str] = field(default_factory = list)
 
@@ -36,17 +34,17 @@ def _title_to_slug(title: str) -> str:
 
 
 
-def _generate_doc_hash(post: Post):
+def generate_doc_hash(post: Post):
     return hashlib.sha256(post.content.encode("utf-8")).hexdigest()
 
 
 
 def generate_template_doc(
         document_path: Path,
-        content_type: ContentType,
         title: str,
         parent_key: UUID | None,
         tags: list[str] | None,
+        content_type: ContentType = "docs",
 ) -> None:
     
     document_path.mkdir(parents=True, exist_ok=True)
@@ -74,7 +72,7 @@ def generate_template_doc(
                 parent_key: {frontmatter.parent_key}
                 tags: {', '.join(frontmatter.tags)}
                 wordpress_id: {frontmatter.wordpress_id or ''}
-                hash: {frontmatter.hash or ''}
+                document_hash: {frontmatter.document_hash or ''}
                 ---
 
                 # {frontmatter.title}
@@ -93,34 +91,21 @@ def update_frontmatter(file_path: Path, wordpress_id: int | None, hash: str | No
         post.metadata["wordpress_id"] = wordpress_id
 
     if hash is not None:
-        post.metadata["hash"] = hash
+        post.metadata["document_hash"] = hash
 
     with file_path.open('w') as f:
         f.write(frontmatter.dumps(post))
 
 
 
-def sync_document(file_path: Path, cfg: D2CMSConfig):
-    post = frontmatter.load(file_path)
-    current_hash = _generate_doc_hash(post)
+def to_html(document: Post) -> str:
+    md = MarkdownIt("commonmark")
 
-    if post.metadata.get("hash") == current_hash:
-        print(f"No changes detected. Skipping: {post.metadata.get["title"]}")
-        return
-    
-    with make_client(cfg) as client:
-        content_type = post.metadata.get("content_type")
-        wordpress_id = post.metadata.get("wordpress_id")
-        if wordpress_id:
-            api_route = f"wp/v2/{content_type}/{wordpress_id}"
-        else:
-            api_route = f"wp/v2/{content_type}"
+    title = document.metadata.get("title")
+    content = document.content
 
-        response = client.post(api_route, json={
-            # TODO
-        })
-        response.raise_for_status()
+    lines = content.split("\n")
+    if lines and title and lines[0].strip() == f"# {title}":
+        content = "\n".join(lines[1:]).lstrip()
 
-        wp_data = response.json
-
-    update_frontmatter(file_path, wordpress_id=wp_data['id'], hash=current_hash)
+    return md.render(content)
