@@ -65,19 +65,19 @@ def generate_template_doc(
     )
 
     content = dedent(f"""---
-                document_key: {frontmatter.document_key}
-                title: {frontmatter.title}
-                slug: {frontmatter.slug}
-                content_type: {frontmatter.content_type}
-                parent_key: {frontmatter.parent_key}
-                tags: {', '.join(frontmatter.tags)}
-                wordpress_id: {frontmatter.wordpress_id or ''}
-                document_hash: {frontmatter.document_hash or ''}
-                ---
+        document_key: {frontmatter.document_key}
+        title: {frontmatter.title}
+        slug: {frontmatter.slug}
+        content_type: {frontmatter.content_type}
+        parent_key: {frontmatter.parent_key}
+        tags: {', '.join(frontmatter.tags)}
+        wordpress_id: {frontmatter.wordpress_id or ''}
+        document_hash: {frontmatter.document_hash or ''}
+        ---
 
-                # {frontmatter.title}
+        # {frontmatter.title}
 
-                Doc content here
+        Doc content here
     """).strip()
     
     file_path.write_text(content)

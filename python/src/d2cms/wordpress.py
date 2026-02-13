@@ -8,18 +8,24 @@ from .docs import D2CMSFrontmatter, generate_doc_hash, to_html, update_frontmatt
 from .http import make_client
 
 
-def _find_parent_id(frontmatter: D2CMSFrontmatter, client: Client) -> int | None:
-    if frontmatter.parent_key:
-        content_type = frontmatter.content_type
+class ParentNotFoundError(FileNotFoundError):
+    """Raised when a parent_key does not match an existing content object in the remote DB"""
+
+
+def _find_parent_id(metadata: D2CMSFrontmatter, client: Client) -> int | None:
+    if metadata.parent_key:
+        content_type = metadata.content_type
 
         response = client.get(f"wp/v2/{content_type}", params={
             "meta_key": "document_key",
-            "meta_value": frontmatter.parent_key
+            "meta_value": metadata.parent_key
         })
         response.raise_for_status()
 
         parent_data = response.json()
-        return parent_data['id']
+        if not parent_data:
+            raise ParentNotFoundError(f"The specified parent document does not exist: {metadata.parent_key}")
+        return parent_data[0]['id']
     else:
         return None
 
@@ -34,7 +40,7 @@ def _get_or_create_tag_ids(tags: list[str], client: Client) -> list[int]:
         if existing:
             tag_ids.append(existing[0]['id'])
         else:
-            response = client.post("wp/v2/tags", jason={ "name": name })
+            response = client.post("wp/v2/tags", json={ "name": name })
             response.raise_for_status()
             tag_ids.append(response.json()['id'])
 
@@ -48,7 +54,7 @@ def sync_document(file_path: Path, cfg: D2CMSConfig) -> None:
 
     
     if document.metadata.get("document_hash") == current_hash:
-        print(f"No changes detected. Skipping: {document.metadata.get["title"]}")
+        print(f"No changes detected. Skipping: {document.metadata.get("title")}")
         return
     
     with make_client(cfg) as client:
@@ -64,11 +70,11 @@ def sync_document(file_path: Path, cfg: D2CMSConfig) -> None:
             "title": document.metadata.get("title"),
             "content": to_html(document),
             "meta": {
-                "document_key": document.metadata.get("document_key"),
+                "document_key": str(document.metadata.get("document_key")),
                 "document_hash": current_hash,
             },
             "parent": _find_parent_id(D2CMSFrontmatter(**metadata), client),
-            "tags": _get_or_create_tag_ids(metadata.get("tags"))
+            "tags": _get_or_create_tag_ids(metadata.get("tags", []), client)
         })
         response.raise_for_status()
 
