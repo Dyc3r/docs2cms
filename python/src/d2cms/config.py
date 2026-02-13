@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -40,10 +38,6 @@ class D2CMSConfig:
     wp_api_user: str
     docs_dir: Path
     auth_mode: AuthMode
-
-    @property
-    def docs_dir_str(self) -> str:
-        return str(self.docs_dir)
     
 
 def load_config_from_env() -> D2CMSConfig:
