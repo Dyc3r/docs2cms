@@ -22,6 +22,7 @@ class D2CMSFrontmatter:
     document_hash: str | None = None # hashed value of the doc for identifying diffs
     parent_key: UUID | None = None # the document_key of the parent object
     tags: list[str] = field(default_factory = list)
+    deprecated: bool = False
 
     @property
     def is_child(self) -> bool:
