@@ -4,6 +4,9 @@ A CLI utility for publishing git-managed markdown files to WordPress via its RES
 
 Markdown files live in your repository. `d2cms` reads their YAML frontmatter to track WordPress IDs and content hashes, then creates or updates posts/pages/docs only when content has changed.
 
+## Claude Code Experiment
+This is a proof of concept for leveraging Claude as a productivity booster.
+
 ## How it works
 
 1. Each markdown file carries a YAML frontmatter block with a stable UUID, WordPress post ID, and a content hash.
@@ -36,29 +39,40 @@ cp python/src/.env.example python/src/.env
 
 ## Commands
 
-### `add-doc`
+### `add`
 
 Generate a template markdown document with a pre-populated frontmatter block:
 
 ```bash
-d2cms add-doc "My Document Title"
+d2cms add "My Document Title"
 ```
 
 The file is written to `D2CMS_DOCS_DIR` by default. Use `--path` to write into a subdirectory relative to `D2CMS_DOCS_DIR`. If a markdown file exists at that path (e.g. `guides.md`), its `document_key` is automatically used as the `parent_key` of the new document:
 
 ```bash
-d2cms add-doc "My Document Title" --path guides
+d2cms add "My Document Title" --path guides
 ```
 
 Additional options:
 
 ```bash
 # Set the WordPress content type (default: docs)
-d2cms add-doc "My Document Title" --content-type pages
+d2cms add "My Document Title" --content-type pages
 
 # Assign tags (comma-delimited, supports multi-word tags)
-d2cms add-doc "My Document Title" --tags "guide,getting started,tutorial"
+d2cms add "My Document Title" --tags "guide,getting started,tutorial"
 ```
+
+### `deprecate`
+
+Mark a document as deprecated and relocate its children up one directory level:
+
+```bash
+d2cms deprecate guides/old-page.md
+```
+
+The path is relative to `D2CMS_DOCS_DIR`. This command sets `deprecated: true` in the file's frontmatter and updates the `parent_key` of any children to inherit the deprecated document's own parent. The next `sync` will remove the document from WordPress and delete the local file.
+
 
 ## Local WordPress environment
 
