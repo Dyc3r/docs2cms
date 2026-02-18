@@ -2,7 +2,6 @@ import hashlib
 from dataclasses import dataclass, field
 from pathlib import Path
 import re
-from textwrap import dedent
 from typing import Literal
 from uuid import UUID, uuid7
 
@@ -32,7 +31,7 @@ class D2CMSFrontmatter:
 
 
 def _title_to_slug(title: str) -> str:
-    return title.lower().replace(" ", "-")
+    return title.lower().strip().replace(" ", "-")
 
 
 
@@ -42,22 +41,30 @@ def generate_doc_hash(post: Post):
 
 
 def generate_template_doc(
+        docs_root: Path,
         document_path: Path,
         title: str,
-        parent_key: UUID | None,
         tags: list[str] | None,
         content_type: ContentType = "docs",
-) -> None:
-    
+) -> Path:
+
     document_path.mkdir(parents=True, exist_ok=True)
-    
+
     slug = _title_to_slug(title)
     file_path = document_path / f"{slug}.md"
 
     if file_path.exists():
         raise FileExistsError(f"Specified file already exists: {file_path}")
 
-    frontmatter = D2CMSFrontmatter(
+    parent_key: UUID | None = None
+    if document_path != docs_root:
+        parent_file = Path(f"{file_path.parent}.md")
+        if parent_file.exists():
+            parent_post = frontmatter.load(parent_file)
+            key = parent_post.metadata.get("document_key")
+            parent_key = UUID(str(key)) if key else None
+        
+    fm = D2CMSFrontmatter(
         document_key=uuid7(),
         content_type=content_type,
         title=title,
@@ -66,23 +73,24 @@ def generate_template_doc(
         tags=tags or []
     )
 
-    content = dedent(f"""---
-        document_key: {frontmatter.document_key}
-        title: {frontmatter.title}
-        slug: {frontmatter.slug}
-        content_type: {frontmatter.content_type}
-        parent_key: {frontmatter.parent_key}
-        tags: {', '.join(frontmatter.tags)}
-        wordpress_id: {frontmatter.wordpress_id or ''}
-        document_hash: {frontmatter.document_hash or ''}
-        ---
+    content = f"""---
+document_key: {fm.document_key}
+title: {fm.title}
+slug: {fm.slug}
+content_type: {fm.content_type}
+parent_key: {fm.parent_key or ''}
+tags: {', '.join(fm.tags)}
+wordpress_id: {fm.wordpress_id or ''}
+document_hash: {fm.document_hash or ''}
+---
 
-        # {frontmatter.title}
+# {fm.title}
 
-        Doc content here
-    """).strip()
-    
+Doc content here
+"""
+
     file_path.write_text(content)
+    return file_path
 
 
 

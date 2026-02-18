@@ -34,6 +34,32 @@ cp python/src/.env.example python/src/.env
 | `D2CMS_DOCS_DIR` | Path to directory containing your markdown files |
 | `D2CMS_AUTH_MODE` | `token` (default) or `basic` |
 
+## Commands
+
+### `add-doc`
+
+Generate a template markdown document with a pre-populated frontmatter block:
+
+```bash
+d2cms add-doc "My Document Title"
+```
+
+The file is written to `D2CMS_DOCS_DIR` by default. Use `--path` to write into a subdirectory relative to `D2CMS_DOCS_DIR`. If a markdown file exists at that path (e.g. `guides.md`), its `document_key` is automatically used as the `parent_key` of the new document:
+
+```bash
+d2cms add-doc "My Document Title" --path guides
+```
+
+Additional options:
+
+```bash
+# Set the WordPress content type (default: docs)
+d2cms add-doc "My Document Title" --content-type pages
+
+# Assign tags (comma-delimited, supports multi-word tags)
+d2cms add-doc "My Document Title" --tags "guide,getting started,tutorial"
+```
+
 ## Local WordPress environment
 
 A Docker Compose setup is included for local development:

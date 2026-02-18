@@ -6,6 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "docs-2-cms"
 version = "0.1.0"
 description = "A simple utility for publishing git-managed markdown files to a WordPress site via API"
+readme = "../README.md"
 requires-python = ">=3.14"
 
 dependencies = [
