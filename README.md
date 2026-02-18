@@ -73,6 +73,16 @@ d2cms deprecate guides/old-page.md
 
 The path is relative to `D2CMS_DOCS_DIR`. This command sets `deprecated: true` in the file's frontmatter and updates the `parent_key` of any children to inherit the deprecated document's own parent. The next `sync` will remove the document from WordPress and delete the local file.
 
+### `sync`
+
+Sync all documents in `D2CMS_DOCS_DIR` to WordPress:
+
+```bash
+d2cms sync
+```
+
+Files whose content hash matches the stored `document_hash` are skipped. New files are created, changed files are updated, and files marked `deprecated: true` are deleted from WordPress and removed locally.
+
 
 ## Local WordPress environment
 

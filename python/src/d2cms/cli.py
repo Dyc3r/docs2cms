@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 
 from d2cms.config import ConfigError, load_config_from_env
 from d2cms.docs import generate_template_doc, reparent_and_relocate_children
+from d2cms.wordpress import sync
 
 
 def _cmd_add_doc(args: argparse.Namespace) -> None:
@@ -53,6 +54,16 @@ def _cmd_deprecate(args: argparse.Namespace) -> None:
     print(f"Deprecated: {file_path}")
 
 
+def _cmd_sync(_args: argparse.Namespace) -> None:
+    try:
+        config = load_config_from_env()
+    except ConfigError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    sync(config)
+
+
 def main() -> None:
     load_dotenv()
 
@@ -80,11 +91,15 @@ def main() -> None:
         "path", help="Path to the document relative to D2CMS_DOCS_DIR"
     )
 
+    subparsers.add_parser("sync", help="Sync all documents in D2CMS_DOCS_DIR to WordPress")
+
     args = parser.parse_args()
 
     if args.command == "add":
         _cmd_add_doc(args)
     elif args.command == "deprecate":
         _cmd_deprecate(args)
+    elif args.command == "sync":
+        _cmd_sync(args)
     else:
         parser.print_help()
