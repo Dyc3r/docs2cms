@@ -59,7 +59,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(prog="d2cms", description="Sync markdown docs to WordPress")
     subparsers = parser.add_subparsers(dest="command")
 
-    add_doc = subparsers.add_parser("add-doc", help="Generate a template markdown document")
+    add_doc = subparsers.add_parser("add", help="Generate a template markdown document")
     add_doc.add_argument("title", help="Document title")
     add_doc.add_argument(
         "--path",
@@ -82,7 +82,7 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    if args.command == "add-doc":
+    if args.command == "add":
         _cmd_add_doc(args)
     elif args.command == "deprecate":
         _cmd_deprecate(args)

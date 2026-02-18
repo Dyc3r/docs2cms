@@ -80,7 +80,7 @@ title: {fm.title}
 slug: {fm.slug}
 content_type: {fm.content_type}
 parent_key: {fm.parent_key or ''}
-tags: {', '.join(fm.tags)}
+tags: [{', '.join(fm.tags)}]
 wordpress_id: {fm.wordpress_id or ''}
 document_hash: {fm.document_hash or ''}
 ---

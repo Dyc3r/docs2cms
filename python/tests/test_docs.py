@@ -133,19 +133,25 @@ class TestGenerateTemplateDoc:
         post = frontmatter.load(result)
         assert not post.metadata.get("parent_key")
 
-    def test_writes_tags_to_file(self, tmp_path):
+    def test_writes_tags_as_yaml_list(self, tmp_path):
         result = generate_template_doc(tmp_path, tmp_path, "Tagged", ["python", "cms"])
-        content = result.read_text()
-        assert "python" in content
-        assert "cms" in content
+        post = frontmatter.load(result)
+        assert post.metadata["tags"] == ["python", "cms"]
 
-    def test_empty_tags_list(self, tmp_path):
+    def test_multi_word_tags_round_trip(self, tmp_path):
+        result = generate_template_doc(tmp_path, tmp_path, "Tasty", ["apple pie", "tacos", "pizza"])
+        post = frontmatter.load(result)
+        assert post.metadata["tags"] == ["apple pie", "tacos", "pizza"]
+
+    def test_empty_tags_writes_empty_yaml_list(self, tmp_path):
         result = generate_template_doc(tmp_path, tmp_path, "No Tags", [])
-        assert result.exists()
+        post = frontmatter.load(result)
+        assert post.metadata["tags"] == []
 
     def test_none_tags_treated_as_empty(self, tmp_path):
         result = generate_template_doc(tmp_path, tmp_path, "No Tags", None)
-        assert result.exists()
+        post = frontmatter.load(result)
+        assert post.metadata["tags"] == []
 
     def test_default_content_type_is_docs(self, tmp_path):
         result = generate_template_doc(tmp_path, tmp_path, "My Doc", None)
