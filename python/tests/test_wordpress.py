@@ -438,6 +438,21 @@ class TestSyncDirectory:
             _sync_directory(tmp_path, cfg)
         assert mock_sync.call_count == 1
 
+    def test_skips_nonexistent_child_dir_during_recursion(self, tmp_path, cfg):
+        """Guard: a child dir deleted during file processing does not crash recursion."""
+        subdir = tmp_path / "section"
+        subdir.mkdir()
+        parent_doc = tmp_path / "section.md"
+        parent_doc.write_text("content")
+
+        def delete_subdir(path: Path, _cfg: D2CMSConfig) -> None:
+            if path == parent_doc:
+                import shutil
+                shutil.rmtree(subdir)
+
+        with patch("d2cms.wordpress._sync_document", side_effect=delete_subdir):
+            _sync_directory(tmp_path, cfg)  # should not raise
+
     def test_parent_doc_synced_before_subdirectory(self, tmp_path, cfg):
         subdir = tmp_path / "section"
         subdir.mkdir()

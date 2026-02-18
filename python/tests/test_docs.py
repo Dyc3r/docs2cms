@@ -11,6 +11,7 @@ from d2cms.docs import (
     generate_doc_hash,
     generate_template_doc,
     read_directory,
+    reparent_and_relocate_children,
     to_html,
     update_frontmatter,
 )
@@ -215,6 +216,155 @@ class TestUpdateFrontmatter:
         update_frontmatter(doc_file, wordpress_id=1, document_hash="x")
         post = frontmatter.load(doc_file)
         assert post.metadata["title"] == "Test"
+
+    def test_sets_parent_key_when_provided(self, tmp_path):
+        f = tmp_path / "child.md"
+        f.write_text("---\ntitle: C\nparent_key: \ndocument_hash: \n---\n\nContent\n")
+        update_frontmatter(f, parent_key=PARENT_KEY)
+        assert frontmatter.load(f).metadata["parent_key"] == str(PARENT_KEY)
+
+    def test_clears_parent_key_when_none_passed(self, tmp_path):
+        f = tmp_path / "child.md"
+        f.write_text(f"---\ntitle: C\nparent_key: {PARENT_KEY}\ndocument_hash: abc\n---\n\nC\n")
+        update_frontmatter(f, parent_key=None)
+        assert frontmatter.load(f).metadata["parent_key"] == ""
+
+    def test_clears_document_hash_when_parent_key_provided(self, tmp_path):
+        f = tmp_path / "child.md"
+        f.write_text("---\ntitle: C\nparent_key: \ndocument_hash: oldhash\n---\n\nC\n")
+        update_frontmatter(f, parent_key=PARENT_KEY)
+        assert frontmatter.load(f).metadata["document_hash"] == ""
+
+    def test_does_not_touch_parent_key_when_omitted(self, doc_file):
+        # doc_file has no parent_key field — calling without parent_key should not add it
+        update_frontmatter(doc_file, wordpress_id=1)
+        assert "parent_key" not in frontmatter.load(doc_file).metadata
+
+
+GRANDPARENT_KEY = UUID("00000003-0000-7000-8000-000000000000")
+
+
+class TestReparentAndRelocate:
+    def _make_parent_doc(
+        self, parent_dir: Path, name: str, parent_key: UUID | None = None
+    ) -> Path:
+        f = parent_dir / name
+        pk = str(parent_key) if parent_key else ""
+        f.write_text(
+            f"---\ntitle: Parent\ndocument_key: {DOC_KEY}\nparent_key: {pk}\n"
+            "document_hash: oldhash\ndeprecated: true\n---\n\nContent\n"
+        )
+        return f
+
+    def _make_child_doc(self, child_dir: Path, name: str) -> Path:
+        f = child_dir / name
+        f.write_text(
+            f"---\ntitle: Child\ndocument_key: {PARENT_KEY}\nparent_key: {DOC_KEY}\n"
+            "document_hash: childhash\ndeprecated: false\n---\n\nChild content\n"
+        )
+        return f
+
+    def test_no_op_when_no_sibling_dir(self, tmp_path):
+        doc = self._make_parent_doc(tmp_path, "section.md", GRANDPARENT_KEY)
+        reparent_and_relocate_children(doc)
+        assert doc.exists()
+
+    def test_no_op_when_sibling_is_a_file_not_dir(self, tmp_path):
+        doc = self._make_parent_doc(tmp_path, "section.md", GRANDPARENT_KEY)
+        (tmp_path / "section").write_text("not a dir")
+        reparent_and_relocate_children(doc)
+        assert doc.exists()
+
+    def test_moves_child_md_files_to_parent_dir(self, tmp_path):
+        doc = self._make_parent_doc(tmp_path, "section.md", GRANDPARENT_KEY)
+        sibling = tmp_path / "section"
+        sibling.mkdir()
+        self._make_child_doc(sibling, "child-a.md")
+        reparent_and_relocate_children(doc)
+        assert (tmp_path / "child-a.md").exists()
+        assert not (sibling / "child-a.md").exists()
+
+    def test_moves_subdirectories_to_parent_dir(self, tmp_path):
+        doc = self._make_parent_doc(tmp_path, "section.md", GRANDPARENT_KEY)
+        sibling = tmp_path / "section"
+        sibling.mkdir()
+        nested = sibling / "nested"
+        nested.mkdir()
+        (nested / "grandchild.md").write_text("content")
+        reparent_and_relocate_children(doc)
+        assert (tmp_path / "nested").is_dir()
+        assert (tmp_path / "nested" / "grandchild.md").exists()
+
+    def test_removes_sibling_dir_after_relocation(self, tmp_path):
+        doc = self._make_parent_doc(tmp_path, "section.md", GRANDPARENT_KEY)
+        sibling = tmp_path / "section"
+        sibling.mkdir()
+        self._make_child_doc(sibling, "child.md")
+        reparent_and_relocate_children(doc)
+        assert not sibling.exists()
+
+    def test_moves_multiple_files_and_dirs(self, tmp_path):
+        doc = self._make_parent_doc(tmp_path, "section.md", GRANDPARENT_KEY)
+        sibling = tmp_path / "section"
+        sibling.mkdir()
+        self._make_child_doc(sibling, "child-a.md")
+        self._make_child_doc(sibling, "child-b.md")
+        (sibling / "nested").mkdir()
+        reparent_and_relocate_children(doc)
+        assert (tmp_path / "child-a.md").exists()
+        assert (tmp_path / "child-b.md").exists()
+        assert (tmp_path / "nested").is_dir()
+        assert not sibling.exists()
+
+    def test_children_inherit_deleted_docs_parent_key(self, tmp_path):
+        doc = self._make_parent_doc(tmp_path, "section.md", GRANDPARENT_KEY)
+        sibling = tmp_path / "section"
+        sibling.mkdir()
+        self._make_child_doc(sibling, "child.md")
+        reparent_and_relocate_children(doc)
+        post = frontmatter.load(tmp_path / "child.md")
+        assert post.metadata["parent_key"] == str(GRANDPARENT_KEY)
+
+    def test_children_get_empty_parent_key_when_deleted_doc_was_root(self, tmp_path):
+        doc = self._make_parent_doc(tmp_path, "section.md", parent_key=None)
+        sibling = tmp_path / "section"
+        sibling.mkdir()
+        self._make_child_doc(sibling, "child.md")
+        reparent_and_relocate_children(doc)
+        post = frontmatter.load(tmp_path / "child.md")
+        assert post.metadata["parent_key"] == ""
+
+    def test_clears_document_hash_on_children(self, tmp_path):
+        doc = self._make_parent_doc(tmp_path, "section.md", GRANDPARENT_KEY)
+        sibling = tmp_path / "section"
+        sibling.mkdir()
+        self._make_child_doc(sibling, "child.md")
+        reparent_and_relocate_children(doc)
+        post = frontmatter.load(tmp_path / "child.md")
+        assert post.metadata["document_hash"] == ""
+
+    def test_does_not_update_files_in_nested_subdirs(self, tmp_path):
+        doc = self._make_parent_doc(tmp_path, "section.md", GRANDPARENT_KEY)
+        sibling = tmp_path / "section"
+        sibling.mkdir()
+        nested = sibling / "nested"
+        nested.mkdir()
+        grandchild = nested / "grandchild.md"
+        grandchild.write_text(
+            f"---\ntitle: GC\nparent_key: {PARENT_KEY}\ndocument_hash: gchash\n---\n\nC\n"
+        )
+        reparent_and_relocate_children(doc)
+        post = frontmatter.load(tmp_path / "nested" / "grandchild.md")
+        assert str(post.metadata["parent_key"]) == str(PARENT_KEY)
+
+    def test_does_not_modify_deleted_doc_itself(self, tmp_path):
+        doc = self._make_parent_doc(tmp_path, "section.md", GRANDPARENT_KEY)
+        sibling = tmp_path / "section"
+        sibling.mkdir()
+        self._make_child_doc(sibling, "child.md")
+        original_text = doc.read_text()
+        reparent_and_relocate_children(doc)
+        assert doc.read_text() == original_text
 
 
 class TestToHtml:

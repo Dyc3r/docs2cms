@@ -6,7 +6,12 @@ from httpx import Client
 
 from . import docs
 from .config import D2CMSConfig
-from .docs import D2CMSFrontmatter, generate_doc_hash, to_html, update_frontmatter
+from .docs import (
+    D2CMSFrontmatter,
+    generate_doc_hash,
+    to_html,
+    update_frontmatter,
+)
 from .http import make_client
 
 
@@ -81,7 +86,8 @@ def _sync_directory(directory: Path, cfg: D2CMSConfig) -> None:
         _sync_document(file_path, cfg)
 
     for child_dir in directories:
-        _sync_directory(child_dir, cfg)
+        if child_dir.exists():
+            _sync_directory(child_dir, cfg)
 
 
 def _sync_document(file_path: Path, cfg: D2CMSConfig) -> None:

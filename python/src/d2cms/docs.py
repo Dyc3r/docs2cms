@@ -1,5 +1,6 @@
 import hashlib
 import re
+import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
@@ -108,7 +109,19 @@ def read_directory(doc_path: Path):
 
 
 
-def update_frontmatter(file_path: Path, wordpress_id: int | None, document_hash: str | None) -> None:
+class _NotProvided:
+    pass
+
+
+_NOT_PROVIDED = _NotProvided()
+
+
+def update_frontmatter(
+    file_path: Path,
+    wordpress_id: int | None = None,
+    document_hash: str | None = None,
+    parent_key: UUID | None | _NotProvided = _NOT_PROVIDED,
+) -> None:
     post = frontmatter.load(file_path)
 
     if wordpress_id is not None:
@@ -117,8 +130,32 @@ def update_frontmatter(file_path: Path, wordpress_id: int | None, document_hash:
     if document_hash is not None:
         post.metadata["document_hash"] = document_hash
 
-    with file_path.open('w') as f:
+    if not isinstance(parent_key, _NotProvided):
+        post.metadata["parent_key"] = str(parent_key) if parent_key is not None else ""
+        post.metadata["document_hash"] = ""
+
+    with file_path.open("w") as f:
         f.write(frontmatter.dumps(post))
+
+
+def reparent_and_relocate_children(doc_path: Path) -> None:
+    """Move sibling directory contents up one level and update their parent_key."""
+    sibling_dir = doc_path.parent / doc_path.stem
+    if not sibling_dir.is_dir():
+        return
+
+    deleted_post = frontmatter.load(doc_path)
+    raw_key = deleted_post.metadata.get("parent_key")
+    inherited_parent_key: UUID | None = UUID(str(raw_key)) if raw_key else None
+
+    for child in sibling_dir.iterdir():
+        if child.is_file() and child.suffix == ".md":
+            update_frontmatter(child, parent_key=inherited_parent_key)
+
+    for item in list(sibling_dir.iterdir()):
+        shutil.move(str(item), str(doc_path.parent / item.name))
+
+    sibling_dir.rmdir()
 
 
 
