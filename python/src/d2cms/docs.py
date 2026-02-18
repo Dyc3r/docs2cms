@@ -1,7 +1,7 @@
 import hashlib
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
-import re
 from typing import Literal
 from uuid import UUID, uuid7
 
@@ -133,6 +133,6 @@ def to_html(document: Post) -> str:
         content = "\n".join(lines[1:]).lstrip()
 
     # Strip .md extension from internal links
-    content = re.sub(r']\(([./]*[\w-/]+)\.md\)', r'](\1)', content)
+    content = re.sub(r']\(([./]*[\w/-]+)\.md\)', r'](\1)', content)
 
     return md.render(content)
