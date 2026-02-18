@@ -16,10 +16,10 @@ def make_client(cfg: D2CMSConfig) -> httpx.Client:
         headers['Authorization'] = f"Bearer {cfg.wp_api_key}"
 
     client = httpx.Client(
-        base_url = cfg.wp_api_root,
-        headers = headers,
-        timeout = httpx.Timeout(10.0),
-        auth = auth if cfg.auth_mode == 'basic' else None
+        base_url=cfg.wp_api_root,
+        headers=headers,
+        timeout=httpx.Timeout(10.0),
+        auth=auth if cfg.auth_mode == "basic" else None,
     )
 
     return client

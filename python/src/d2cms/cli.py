@@ -1,4 +1,5 @@
 import argparse
+import logging
 import sys
 
 import frontmatter
@@ -54,7 +55,10 @@ def _cmd_deprecate(args: argparse.Namespace) -> None:
     print(f"Deprecated: {file_path}")
 
 
-def _cmd_sync(_args: argparse.Namespace) -> None:
+def _cmd_sync(args: argparse.Namespace) -> None:
+    log_level = logging.DEBUG if args.debug else logging.INFO
+    logging.basicConfig(level=log_level, format="%(message)s")
+
     try:
         config = load_config_from_env()
     except ConfigError as e:
@@ -91,7 +95,8 @@ def main() -> None:
         "path", help="Path to the document relative to D2CMS_DOCS_DIR"
     )
 
-    subparsers.add_parser("sync", help="Sync all documents in D2CMS_DOCS_DIR to WordPress")
+    sync_cmd = subparsers.add_parser("sync", help="Sync all documents in D2CMS_DOCS_DIR to WordPress")
+    sync_cmd.add_argument("--debug", action="store_true", help="Enable debug logging")
 
     args = parser.parse_args()
 

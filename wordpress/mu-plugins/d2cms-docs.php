@@ -35,6 +35,7 @@ add_action('init', function() {
 		'public' => true,
 		'hierarchical' => true,
 		'show_in_rest' => true,
+		'rest_base' => 'docs',
 		'menu_position' => 8,
 		'menu_icon' => 'dashicons-media-document',
 		'supports' => array(

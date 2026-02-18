@@ -1,6 +1,8 @@
+import logging
 from pathlib import Path
 
 import frontmatter
+import httpx
 from frontmatter import Post
 from httpx import Client
 
@@ -13,6 +15,22 @@ from .docs import (
     update_frontmatter,
 )
 from .http import make_client
+
+logger = logging.getLogger(__name__)
+
+
+def _raise_for_status(response: httpx.Response) -> None:
+    try:
+        response.raise_for_status()
+    except httpx.HTTPStatusError:
+        logger.error(
+            "%s %s → %s\n%s",
+            response.request.method,
+            response.request.url,
+            response.status_code,
+            response.text,
+        )
+        raise
 
 
 class ParentNotFoundError(FileNotFoundError):
@@ -27,8 +45,8 @@ def _find_parent_id(metadata: D2CMSFrontmatter, client: Client) -> int | None:
         response = client.get(f"wp/v2/{content_type}", params={
             "meta_key": "document_key",
             "meta_value": metadata.parent_key
-        })
-        response.raise_for_status()
+        }, follow_redirects=True)
+        _raise_for_status(response)
 
         parent_data = response.json()
         if not parent_data:
@@ -43,14 +61,15 @@ def _get_or_create_tag_ids(tags: list[str], client: Client) -> list[int]:
     tag_ids = []
 
     for name in tags:
-        response = client.get("wp/v2/tags", params={ "name": name })
+        response = client.get("wp/v2/tags", params={"name": name}, follow_redirects=True)
         existing = response.json()
 
         if existing:
             tag_ids.append(existing[0]['id'])
         else:
-            response = client.post("wp/v2/tags", json={ "name": name })
-            response.raise_for_status()
+            logger.debug("Creating tag: %s", name)
+            response = client.post("wp/v2/tags", json={"name": name})
+            _raise_for_status(response)
             tag_ids.append(response.json()['id'])
 
     return tag_ids
@@ -61,25 +80,27 @@ def _handle_delete(document: Post, file_path: Path, cfg: D2CMSConfig) -> None:
     wordpress_id = document.metadata.get("wordpress_id")
     post_title = document.metadata.get("title")
 
-    print(f"{post_title} is deprecated. Preparing to delete")
+    logger.info("[delete] %s", file_path)
 
     if not wordpress_id:
-        print(f"{post_title} was never synced. Removing local document")
+        logger.info("[delete] %s was never synced — removing local file only", post_title)
         file_path.unlink()
         return
 
     with make_client(cfg) as client:
         content_type = document.metadata.get("content_type")
 
+        logger.debug("[delete] DELETE wp/v2/%s/%s", content_type, wordpress_id)
         response = client.delete(f"wp/v2/{content_type}/{wordpress_id}")
-        response.raise_for_status()
+        _raise_for_status(response)
 
-        print(f"{post_title} was successfully removed from WordPress. Removing local document")
+        logger.info("[delete] %s removed from WordPress (id=%s)", post_title, wordpress_id)
         file_path.unlink()
 
 
 def _sync_directory(directory: Path, cfg: D2CMSConfig) -> None:
     """Sync all documents in a directory to WordPress"""
+    logger.debug("[sync] scanning directory: %s", directory)
     files, directories = docs.read_directory(directory)
 
     for file_path in files:
@@ -92,28 +113,31 @@ def _sync_directory(directory: Path, cfg: D2CMSConfig) -> None:
 
 def _sync_document(file_path: Path, cfg: D2CMSConfig) -> None:
     """Sync a single document to WordPress"""
+    logger.debug("[sync] processing: %s", file_path)
+
     document = frontmatter.load(file_path)
     metadata = document.metadata
     current_hash = generate_doc_hash(document)
 
     if metadata.get("deprecated"):
-        # If the document is deprecated, remove it
         _handle_delete(document, file_path, cfg)
         return
 
-    
     if document.metadata.get("document_hash") == current_hash:
-        print(f"No changes detected. Skipping: {document.metadata.get("title")}")
+        logger.info("[sync] skipping (no changes): %s", file_path)
         return
-    
+
     with make_client(cfg) as client:
         content_type = document.metadata.get("content_type")
         wordpress_id = document.metadata.get("wordpress_id")
         if wordpress_id:
+            logger.info("[sync] updating: %s (id=%s)", file_path, wordpress_id)
             api_route = f"wp/v2/{content_type}/{wordpress_id}"
         else:
+            logger.info("[sync] creating: %s", file_path)
             api_route = f"wp/v2/{content_type}"
 
+        logger.debug("[sync] POST %s", client.build_request("POST", api_route).url)
         response = client.post(api_route, json={
             "slug": document.metadata.get("slug"),
             "title": document.metadata.get("title"),
@@ -123,12 +147,13 @@ def _sync_document(file_path: Path, cfg: D2CMSConfig) -> None:
                 "document_hash": current_hash,
             },
             "parent": _find_parent_id(D2CMSFrontmatter(**metadata), client),
-            "tags": _get_or_create_tag_ids(metadata.get("tags", []), client)
+            "tags": _get_or_create_tag_ids(metadata.get("tags") or [], client)
         })
-        response.raise_for_status()
+        _raise_for_status(response)
 
         wp_data = response.json()
 
+    logger.info("[sync] done: %s (wp_id=%s)", file_path, wp_data['id'])
     update_frontmatter(file_path, wordpress_id=wp_data['id'], document_hash=current_hash)
 
 
