@@ -4,6 +4,7 @@ import frontmatter
 from frontmatter import Post
 from httpx import Client
 
+from . import docs
 from .config import D2CMSConfig
 from .docs import D2CMSFrontmatter, generate_doc_hash, to_html, update_frontmatter
 from .http import make_client
@@ -72,7 +73,18 @@ def _handle_delete(document: Post, file_path: Path, cfg: D2CMSConfig) -> None:
         file_path.unlink()
 
 
-def sync_document(file_path: Path, cfg: D2CMSConfig) -> None:
+def _sync_directory(directory: Path, cfg: D2CMSConfig) -> None:
+    """Sync all documents in a directory to WordPress"""
+    files, directories = docs.read_directory(directory)
+
+    for file_path in files:
+        _sync_document(file_path, cfg)
+
+    for child_dir in directories:
+        _sync_directory(child_dir, cfg)
+
+
+def _sync_document(file_path: Path, cfg: D2CMSConfig) -> None:
     """Sync a single document to WordPress"""
     document = frontmatter.load(file_path)
     metadata = document.metadata
@@ -111,4 +123,9 @@ def sync_document(file_path: Path, cfg: D2CMSConfig) -> None:
 
         wp_data = response.json()
 
-    update_frontmatter(file_path, wordpress_id=wp_data['id'], hash=current_hash)
+    update_frontmatter(file_path, wordpress_id=wp_data['id'], document_hash=current_hash)
+
+
+
+def sync(cfg: D2CMSConfig) -> None:
+    _sync_directory(cfg.docs_dir, cfg)

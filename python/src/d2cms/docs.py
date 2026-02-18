@@ -1,6 +1,7 @@
 import hashlib
 from dataclasses import dataclass, field
 from pathlib import Path
+import re
 from textwrap import dedent
 from typing import Literal
 from uuid import UUID, uuid7
@@ -85,14 +86,28 @@ def generate_template_doc(
 
 
 
-def update_frontmatter(file_path: Path, wordpress_id: int | None, hash: str | None) -> None:
+def read_directory(doc_path: Path):
+    files = []
+    directories = []
+
+    for entry in doc_path.iterdir():
+        if entry.is_dir():
+            directories.append(entry)
+        else:
+            files.append(entry)
+
+    return files, directories
+
+
+
+def update_frontmatter(file_path: Path, wordpress_id: int | None, document_hash: str | None) -> None:
     post = frontmatter.load(file_path)
 
     if wordpress_id is not None:
         post.metadata["wordpress_id"] = wordpress_id
 
-    if hash is not None:
-        post.metadata["document_hash"] = hash
+    if document_hash is not None:
+        post.metadata["document_hash"] = document_hash
 
     with file_path.open('w') as f:
         f.write(frontmatter.dumps(post))
@@ -108,5 +123,8 @@ def to_html(document: Post) -> str:
     lines = content.split("\n")
     if lines and title and lines[0].strip() == f"# {title}":
         content = "\n".join(lines[1:]).lstrip()
+
+    # Strip .md extension from internal links
+    content = re.sub(r']\(([./]*[\w-/]+)\.md\)', r'](\1)', content)
 
     return md.render(content)
