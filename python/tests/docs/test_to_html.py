@@ -61,6 +61,13 @@ class TestToHtml:
         post = frontmatter.loads("---\ntitle: Test\n---\n[Ext](https://example.com/readme.md)")
         assert "readme.md" in to_html(post)
 
+    def test_renders_table_as_html_table(self):
+        post = frontmatter.loads("---\ntitle: Test\n---\n| A | B |\n|---|---|\n| 1 | 2 |")
+        html = to_html(post)
+        assert "<table>" in html
+        assert "<th>A</th>" in html
+        assert "<td>1</td>" in html
+
     def test_strips_md_from_multiple_links(self):
         post = frontmatter.loads(
             "---\ntitle: Test\n---\n[A](./a.md) and [B](./b.md)"

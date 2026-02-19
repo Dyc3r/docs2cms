@@ -168,7 +168,7 @@ def reparent_and_relocate_children(doc_path: Path) -> None:
 
 
 def to_html(document: Post) -> str:
-    md = MarkdownIt("commonmark")
+    md = MarkdownIt("commonmark").enable("table")
 
     title = document.metadata.get("title")
     content = document.content

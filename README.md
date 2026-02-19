@@ -22,13 +22,13 @@ Copy the example environment file and fill in your values:
 cp python/src/.env.example python/src/.env
 ```
 
-| Variable | Description |
-|---|---|
+| Variable            | Description                                                  |
+|---------------------|--------------------------------------------------------------|
 | `D2CMS_WP_API_ROOT` | WordPress REST API root (e.g. `https://example.com/wp-json`) |
-| `D2CMS_WP_API_KEY` | Bearer token or password |
-| `D2CMS_WP_API_USER` | WordPress username |
-| `D2CMS_DOCS_DIR` | Path to directory containing your markdown files |
-| `D2CMS_AUTH_MODE` | `token` or `basic` (default) |
+| `D2CMS_WP_API_KEY`  | Bearer token or password                                     |
+| `D2CMS_WP_API_USER` | WordPress username                                           |
+| `D2CMS_DOCS_DIR`    | Path to directory containing your markdown files             |
+| `D2CMS_AUTH_MODE`   | `token` or `basic` (default)                                 |
 
 ## Commands
 
