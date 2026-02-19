@@ -7,7 +7,7 @@ import frontmatter
 from dotenv import load_dotenv
 
 from d2cms.config import ConfigError, load_config_from_env
-from d2cms.docs import generate_template_doc, reparent_and_relocate_children
+from d2cms.docs import ContentType, generate_template_doc, reparent_and_relocate_children
 from d2cms.wordpress import sync
 
 
@@ -18,15 +18,19 @@ def _cmd_add_doc(args: argparse.Namespace) -> None:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
-    doc_path = config.docs_dir / args.path if args.path else config.docs_dir
-
+    content_type: ContentType = args.content_type or "docs"
+    
+    if args.path:
+        doc_path = config.docs_dir / content_type / args.path
+    else:
+        doc_path = config.docs_dir / content_type
+    
     try:
         created = generate_template_doc(
             docs_root=config.docs_dir,
             document_path=doc_path,
             title=args.title,
             tags=[t.strip() for t in args.tags.split(",")] if args.tags else [],
-            content_type=args.content_type,
         )
         print(f"Created: {created}")
     except FileExistsError as e:
@@ -92,16 +96,16 @@ def main() -> None:
     add_doc = subparsers.add_parser("add", help="Generate a template markdown document")
     add_doc.add_argument("title", help="Document title")
     add_doc.add_argument(
-        "--path",
-        help="Subdirectory relative to D2CMS_DOCS_DIR to create the document in",
-    )
-    add_doc.add_argument("--tags", metavar="TAGS", help="Comma-delimited list of tags to assign to the document")
-    add_doc.add_argument(
         "--content-type",
-        choices=["posts", "pages", "docs"],
         default="docs",
+        choices=["posts", "pages", "docs"],
         help="WordPress content type (default: docs)",
     )
+    add_doc.add_argument(
+        "--path",
+        help="Subdirectory relative to the content type directory inside the D2CMS_DOCS_DIR root (e.g. 'guides/intro')",
+    )
+    add_doc.add_argument("--tags", metavar="TAGS", help="Comma-delimited list of tags to assign to the document")
 
     deprecate_cmd = subparsers.add_parser(
         "deprecate", help="Mark a document as deprecated and relocate its children"

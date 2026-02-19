@@ -3,7 +3,7 @@ import re
 import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal
+from typing import Literal, get_args
 from uuid import UUID, uuid7
 
 import frontmatter
@@ -14,10 +14,20 @@ from markdown_it import MarkdownIt
 ContentType = Literal["posts", "pages", "docs"]
 
 
+def content_type_from_path(file_path: Path, docs_dir: Path) -> ContentType:
+    """Derive the WordPress content type from the file's top-level directory."""
+    relative = file_path.relative_to(docs_dir)
+    top = relative.parts[0] if relative.parts else ""
+    if top not in get_args(ContentType):
+        raise ValueError(
+            f"File is not inside a content type directory (docs/pages/posts): {file_path}"
+        )
+    return top  # type: ignore[return-value]
+
+
 @dataclass
 class D2CMSFrontmatter:
     document_key: UUID # tool-generated unique ID
-    content_type: ContentType # the WP content type this doc represents
     title: str # Post title
     slug: str # Post slug (used in URL & doc file name)
     order: int = 0
@@ -54,7 +64,6 @@ def generate_template_doc(
         document_path: Path,
         title: str,
         tags: list[str] | None,
-        content_type: ContentType = "docs",
 ) -> Path:
 
     document_path.mkdir(parents=True, exist_ok=True)
@@ -75,7 +84,6 @@ def generate_template_doc(
         
     fm = D2CMSFrontmatter(
         document_key=uuid7(),
-        content_type=content_type,
         title=title,
         slug=slug,
         parent_key=parent_key,
@@ -87,7 +95,6 @@ document_key: {fm.document_key}
 title: {fm.title}
 slug: {fm.slug}
 order: {fm.order}
-content_type: {fm.content_type}
 parent_key: {fm.parent_key or ''}
 tags: [{', '.join(fm.tags)}]
 wordpress_id: {fm.wordpress_id or ''}

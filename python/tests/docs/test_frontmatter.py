@@ -23,7 +23,6 @@ class TestD2CMSFrontmatterIsChild:
     def test_is_child_when_parent_key_set(self):
         fm = D2CMSFrontmatter(
             document_key=DOC_KEY,
-            content_type="docs",
             title="Child",
             slug="child",
             parent_key=PARENT_KEY,
@@ -33,7 +32,6 @@ class TestD2CMSFrontmatterIsChild:
     def test_not_child_by_default(self):
         fm = D2CMSFrontmatter(
             document_key=DOC_KEY,
-            content_type="docs",
             title="Root",
             slug="root",
         )
@@ -42,7 +40,6 @@ class TestD2CMSFrontmatterIsChild:
     def test_not_child_when_parent_key_none(self):
         fm = D2CMSFrontmatter(
             document_key=DOC_KEY,
-            content_type="docs",
             title="Root",
             slug="root",
             parent_key=None,

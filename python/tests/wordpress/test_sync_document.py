@@ -55,7 +55,7 @@ class TestSyncDocument:
 
     def test_updates_document_hash_in_frontmatter(self, tmp_path, cfg, report):
         doc_file = _new_doc(tmp_path)
-        expected_hash = generate_doc_hash(frontmatter.load(doc_file), Path("test.md"))
+        expected_hash = generate_doc_hash(frontmatter.load(doc_file), Path("docs") / "test.md")
         with respx.mock:
             respx.post(f"{WP_BASE}wp/v2/docs").mock(
                 return_value=httpx.Response(201, json={"id": 101})
@@ -66,8 +66,8 @@ class TestSyncDocument:
 
     def test_deletes_deprecated_document(self, tmp_path, cfg, report):
         doc_file = _write_doc(
-            tmp_path,
-            f"---\ndocument_key: {DOC_KEY}\ntitle: Old\nslug: old\ncontent_type: docs\n"
+            tmp_path / "docs",
+            f"---\ndocument_key: {DOC_KEY}\ntitle: Old\nslug: old\n"
             "wordpress_id: 99\ndeprecated: true\n---\nOld content\n",
         )
         with respx.mock:
@@ -79,8 +79,8 @@ class TestSyncDocument:
 
     def test_deprecated_doc_never_synced_is_just_removed_locally(self, tmp_path, cfg, report):
         doc_file = _write_doc(
-            tmp_path,
-            f"---\ndocument_key: {DOC_KEY}\ntitle: Ghost\nslug: ghost\ncontent_type: docs\n"
+            tmp_path / "docs",
+            f"---\ndocument_key: {DOC_KEY}\ntitle: Ghost\nslug: ghost\n"
             "wordpress_id: \ndeprecated: true\n---\nContent\n",
         )
         # No HTTP mock needed — file should vanish without a network call
@@ -90,8 +90,8 @@ class TestSyncDocument:
 
     def test_syncs_tags_for_new_document(self, tmp_path, cfg, report):
         doc_file = _write_doc(
-            tmp_path,
-            f"---\ndocument_key: {DOC_KEY}\ntitle: Tagged\nslug: tagged\ncontent_type: docs\n"
+            tmp_path / "docs",
+            f"---\ndocument_key: {DOC_KEY}\ntitle: Tagged\nslug: tagged\n"
             "parent_key: \ntags: [python, cms]\nwordpress_id: \n"
             "document_hash: \ndeprecated: false\n---\n\nContent\n",
         )
@@ -119,8 +119,8 @@ class TestSyncDocument:
 
     def test_records_parent_not_found_in_report(self, tmp_path, cfg, report):
         doc_file = _write_doc(
-            tmp_path,
-            f"---\ndocument_key: {DOC_KEY}\ntitle: Child\nslug: child\ncontent_type: docs\n"
+            tmp_path / "docs",
+            f"---\ndocument_key: {DOC_KEY}\ntitle: Child\nslug: child\n"
             f"parent_key: {PARENT_KEY}\ntags: []\nwordpress_id: \n"
             "document_hash: \ndeprecated: false\n---\n\nChild content\n",
         )
@@ -134,8 +134,8 @@ class TestSyncDocument:
 
     def test_deprecated_delete_failure_records_in_report_and_keeps_file(self, tmp_path, cfg, report):
         doc_file = _write_doc(
-            tmp_path,
-            f"---\ndocument_key: {DOC_KEY}\ntitle: Old\nslug: old\ncontent_type: docs\n"
+            tmp_path / "docs",
+            f"---\ndocument_key: {DOC_KEY}\ntitle: Old\nslug: old\n"
             "wordpress_id: 99\ndeprecated: true\n---\nOld content\n",
         )
         with respx.mock:
@@ -148,8 +148,8 @@ class TestSyncDocument:
 
     def test_resolves_parent_before_posting(self, tmp_path, cfg, report):
         doc_file = _write_doc(
-            tmp_path,
-            f"---\ndocument_key: {DOC_KEY}\ntitle: Child\nslug: child\ncontent_type: docs\n"
+            tmp_path / "docs",
+            f"---\ndocument_key: {DOC_KEY}\ntitle: Child\nslug: child\n"
             f"parent_key: {PARENT_KEY}\ntags: []\nwordpress_id: \n"
             "document_hash: \ndeprecated: false\n---\n\nChild content\n",
         )
@@ -176,8 +176,8 @@ class TestSyncDocument:
 
     def test_posts_menu_order(self, tmp_path, cfg, report):
         doc_file = _write_doc(
-            tmp_path,
-            f"---\ndocument_key: {DOC_KEY}\ntitle: Ordered\nslug: ordered\ncontent_type: docs\n"
+            tmp_path / "docs",
+            f"---\ndocument_key: {DOC_KEY}\ntitle: Ordered\nslug: ordered\n"
             "parent_key: \ntags: []\norder: 3\nwordpress_id: \n"
             "document_hash: \ndeprecated: false\n---\n\nContent\n",
         )
@@ -210,4 +210,4 @@ class TestSyncDocument:
         failure = report._failures[0]
         assert failure.content_type == "docs"
         assert failure.wordpress_id == 42
-        assert failure.doc_path == "test.md"
+        assert failure.doc_path == "docs/test.md"

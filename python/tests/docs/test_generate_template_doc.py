@@ -60,21 +60,6 @@ class TestGenerateTemplateDoc:
         post = frontmatter.load(result)
         assert post.metadata["tags"] == []
 
-    def test_default_content_type_is_docs(self, tmp_path):
-        result = generate_template_doc(tmp_path, tmp_path, "My Doc", None)
-        post = frontmatter.load(result)
-        assert post.metadata.get("content_type") == "docs"
-
-    def test_custom_content_type_pages(self, tmp_path):
-        result = generate_template_doc(tmp_path, tmp_path, "A Page", None, content_type="pages")
-        post = frontmatter.load(result)
-        assert post.metadata.get("content_type") == "pages"
-
-    def test_custom_content_type_posts(self, tmp_path):
-        result = generate_template_doc(tmp_path, tmp_path, "A Post", None, content_type="posts")
-        post = frontmatter.load(result)
-        assert post.metadata.get("content_type") == "posts"
-
     def test_generated_document_key_is_unique(self, tmp_path):
         result_a = generate_template_doc(tmp_path, tmp_path, "Doc A", None)
         result_b = generate_template_doc(tmp_path, tmp_path, "Doc B", None)
