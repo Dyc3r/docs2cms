@@ -16,13 +16,6 @@ This is a proof of concept for leveraging Claude as a productivity booster.
 
 ## Setup
 
-**Requirements:** Python 3.14+
-
-```bash
-cd python
-pip install -e ".[dev]"
-```
-
 Copy the example environment file and fill in your values:
 
 ```bash
@@ -115,9 +108,38 @@ The `mu-plugins/` directory registers a custom `docs` post type and a bearer tok
 
 ## Development
 
+### Setup
+
+**Requirements:** Python 3.14+
+
+From the `python/` directory, create and activate a virtual environment, then install dependencies:
+
+**macOS / Linux**
+```bash
+cd python
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+```
+
+**Windows**
+```powershell
+cd python
+python -m venv .venv
+.venv\Scripts\activate
+pip install -e ".[dev]"
+```
+
+All subsequent commands assume the virtual environment is active.
+
+### Commands
+
 ```bash
 mypy          # type checking
 ruff check .  # lint
 ruff format . # format
-pytest        # tests
+
+pytest                          # run all tests
+pytest tests/wordpress/         # run tests for a specific module
+pytest -k "test_name"           # run a single test by name
 ```
