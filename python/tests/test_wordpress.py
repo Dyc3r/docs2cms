@@ -78,7 +78,7 @@ def _existing_doc(tmp_path: Path, wp_id: int, stored_hash: str, name: str = "tes
 def _synced_doc(tmp_path: Path, wp_id: int, name: str = "test.md") -> Path:
     """A doc whose stored hash matches its current content (sync should be skipped)."""
     doc_file = _new_doc(tmp_path, name)
-    real_hash = generate_doc_hash(frontmatter.load(doc_file))
+    real_hash = generate_doc_hash(frontmatter.load(doc_file), Path(name))
     update_frontmatter(doc_file, wordpress_id=wp_id, document_hash=real_hash)
     return doc_file
 
@@ -313,7 +313,7 @@ class TestSyncDocument:
 
     def test_updates_document_hash_in_frontmatter(self, tmp_path, cfg, report):
         doc_file = _new_doc(tmp_path)
-        expected_hash = generate_doc_hash(frontmatter.load(doc_file))
+        expected_hash = generate_doc_hash(frontmatter.load(doc_file), Path("test.md"))
         with respx.mock:
             respx.post(f"{WP_BASE}wp/v2/docs").mock(
                 return_value=httpx.Response(201, json={"id": 101})
@@ -437,6 +437,33 @@ class TestSyncDocument:
         body = json.loads(post_route.calls[0].request.content)
         assert body["status"] == "publish"
 
+    def test_posts_menu_order(self, tmp_path, cfg, report):
+        doc_file = _write_doc(
+            tmp_path,
+            f"---\ndocument_key: {DOC_KEY}\ntitle: Ordered\nslug: ordered\ncontent_type: docs\n"
+            "parent_key: \ntags: []\norder: 3\nwordpress_id: \n"
+            "document_hash: \ndeprecated: false\n---\n\nContent\n",
+        )
+        with respx.mock:
+            post_route = respx.post(f"{WP_BASE}wp/v2/docs").mock(
+                return_value=httpx.Response(201, json={"id": 101})
+            )
+            _sync_document(doc_file, cfg, report)
+        import json
+        body = json.loads(post_route.calls[0].request.content)
+        assert body["menu_order"] == 3
+
+    def test_menu_order_defaults_to_zero(self, tmp_path, cfg, report):
+        doc_file = _new_doc(tmp_path)
+        with respx.mock:
+            post_route = respx.post(f"{WP_BASE}wp/v2/docs").mock(
+                return_value=httpx.Response(201, json={"id": 101})
+            )
+            _sync_document(doc_file, cfg, report)
+        import json
+        body = json.loads(post_route.calls[0].request.content)
+        assert body["menu_order"] == 0
+
     def test_failure_includes_doc_metadata_in_report(self, tmp_path, cfg, report):
         doc_file = _existing_doc(tmp_path, wp_id=42, stored_hash="stale-hash")
         with respx.mock:
@@ -554,6 +581,13 @@ class TestSync:
         with patch("d2cms.wordpress._sync_directory") as mock_dir:
             sync(cfg)
         mock_dir.assert_called_once_with(cfg.docs_dir, cfg, ANY, force=False)
+
+    def test_sync_uses_custom_path_when_provided(self, tmp_path, cfg):
+        subdir = tmp_path / "section"
+        subdir.mkdir()
+        with patch("d2cms.wordpress._sync_directory") as mock_dir:
+            sync(cfg, path=subdir)
+        mock_dir.assert_called_once_with(subdir, cfg, ANY, force=False)
 
     def test_sync_returns_report(self, cfg):
         with patch("d2cms.wordpress._sync_directory"):

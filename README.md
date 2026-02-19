@@ -86,6 +86,9 @@ Files whose content hash matches the stored `document_hash` are skipped. New fil
 Options:
 
 ```bash
+# Sync only a subdirectory (relative to D2CMS_DOCS_DIR)
+d2cms sync --path guides/getting-started
+
 # Bypass the hash check and push all non-deprecated documents regardless of changes
 d2cms sync --force
 

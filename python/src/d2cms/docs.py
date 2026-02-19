@@ -7,6 +7,7 @@ from typing import Literal
 from uuid import UUID, uuid7
 
 import frontmatter
+import yaml
 from frontmatter import Post
 from markdown_it import MarkdownIt
 
@@ -19,6 +20,7 @@ class D2CMSFrontmatter:
     content_type: ContentType # the WP content type this doc represents
     title: str # Post title
     slug: str # Post slug (used in URL & doc file name)
+    order: int = 0
     wordpress_id: int | None = None # WordPress generated ID
     document_hash: str | None = None # hashed value of the doc for identifying diffs
     parent_key: UUID | None = None # the document_key of the parent object
@@ -36,8 +38,14 @@ def _title_to_slug(title: str) -> str:
 
 
 
-def generate_doc_hash(post: Post):
-    return hashlib.sha256(post.content.encode("utf-8")).hexdigest()
+def generate_doc_hash(post: Post, relative_path: Path) -> str:
+    metadata_for_hash = {k: v for k, v in post.metadata.items() if k != "document_hash"}
+    hash_input = "\n".join([
+        str(relative_path),
+        yaml.dump(metadata_for_hash, sort_keys=True, default_flow_style=False),
+        post.content,
+    ])
+    return hashlib.sha256(hash_input.encode("utf-8")).hexdigest()
 
 
 
@@ -78,6 +86,7 @@ def generate_template_doc(
 document_key: {fm.document_key}
 title: {fm.title}
 slug: {fm.slug}
+order: {fm.order}
 content_type: {fm.content_type}
 parent_key: {fm.parent_key or ''}
 tags: [{', '.join(fm.tags)}]
@@ -132,7 +141,6 @@ def update_frontmatter(
 
     if not isinstance(parent_key, _NotProvided):
         post.metadata["parent_key"] = str(parent_key) if parent_key is not None else ""
-        post.metadata["document_hash"] = ""
 
     with file_path.open("w") as f:
         f.write(frontmatter.dumps(post))

@@ -66,7 +66,8 @@ def _cmd_sync(args: argparse.Namespace) -> None:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
-    report = sync(config, force=args.force)
+    path = config.docs_dir / args.path if args.path else None
+    report = sync(config, force=args.force, path=path)
 
 
     if report.has_failures:
@@ -112,6 +113,7 @@ def main() -> None:
     sync_cmd = subparsers.add_parser("sync", help="Sync all documents in D2CMS_DOCS_DIR to WordPress")
     sync_cmd.add_argument("--debug", action="store_true", help="Enable debug logging")
     sync_cmd.add_argument("--force", action="store_true", help="Sync all documents regardless of content hash")
+    sync_cmd.add_argument("--path", help="Subdirectory relative to D2CMS_DOCS_DIR to sync")
 
     args = parser.parse_args()
 

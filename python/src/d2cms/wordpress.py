@@ -105,7 +105,7 @@ def _sync_document(file_path: Path, cfg: D2CMSConfig, report: SyncReport, force:
     metadata = document.metadata
 
     try:
-        current_hash = generate_doc_hash(document)
+        current_hash = generate_doc_hash(document, file_path.relative_to(cfg.docs_dir))
 
         if metadata.get("deprecated"):
             _handle_delete(document, file_path, cfg)
@@ -130,6 +130,7 @@ def _sync_document(file_path: Path, cfg: D2CMSConfig, report: SyncReport, force:
                 "slug": metadata.get("slug"),
                 "title": metadata.get("title"),
                 "status": "publish",
+                "menu_order": metadata.get("order") or 0,
                 "content": to_html(document),
                 "meta": {
                     "document_key": str(metadata.get("document_key")),
@@ -155,7 +156,7 @@ def _sync_document(file_path: Path, cfg: D2CMSConfig, report: SyncReport, force:
         )
 
 
-def sync(cfg: D2CMSConfig, force: bool = False) -> SyncReport:
+def sync(cfg: D2CMSConfig, force: bool = False, path: Path | None = None) -> SyncReport:
     report = SyncReport()
-    _sync_directory(cfg.docs_dir, cfg, report, force=force)
+    _sync_directory(path if path is not None else cfg.docs_dir, cfg, report, force=force)
     return report

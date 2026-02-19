@@ -4,6 +4,7 @@ from uuid import UUID
 
 import frontmatter
 import pytest
+import yaml
 
 from d2cms.docs import (
     D2CMSFrontmatter,
@@ -37,30 +38,54 @@ class TestTitleToSlug:
         assert _title_to_slug("My New Feature") == "my-new-feature"
 
 
+def _make_hash(post: frontmatter.Post, relative_path: Path) -> str:
+    metadata_for_hash = {k: v for k, v in post.metadata.items() if k != "document_hash"}
+    hash_input = "\n".join([
+        str(relative_path),
+        yaml.dump(metadata_for_hash, sort_keys=True, default_flow_style=False),
+        post.content,
+    ])
+    return hashlib.sha256(hash_input.encode("utf-8")).hexdigest()
+
+
 class TestGenerateDocHash:
-    def test_returns_sha256_hex_digest(self):
+    def test_returns_sha256_hex_string(self):
         post = frontmatter.loads("---\ntitle: Test\n---\nHello world")
-        expected = hashlib.sha256(b"Hello world").hexdigest()
-        assert generate_doc_hash(post) == expected
+        result = generate_doc_hash(post, Path("test.md"))
+        assert len(result) == 64
+        assert all(c in "0123456789abcdef" for c in result)
 
-    def test_consistent_for_same_content(self):
+    def test_matches_expected_sha256_of_combined_input(self):
+        post = frontmatter.loads("---\ntitle: Test\n---\nHello world")
+        path = Path("section/test.md")
+        assert generate_doc_hash(post, path) == _make_hash(post, path)
+
+    def test_consistent_for_same_inputs(self):
         post = frontmatter.loads("---\ntitle: Test\n---\nSame content")
-        assert generate_doc_hash(post) == generate_doc_hash(post)
+        path = Path("test.md")
+        assert generate_doc_hash(post, path) == generate_doc_hash(post, path)
 
-    def test_different_for_different_content(self):
+    def test_changes_when_content_changes(self):
+        path = Path("test.md")
         post_a = frontmatter.loads("---\ntitle: Test\n---\nContent A")
         post_b = frontmatter.loads("---\ntitle: Test\n---\nContent B")
-        assert generate_doc_hash(post_a) != generate_doc_hash(post_b)
+        assert generate_doc_hash(post_a, path) != generate_doc_hash(post_b, path)
 
-    def test_empty_content_returns_empty_sha256(self):
-        post = frontmatter.loads("---\ntitle: Test\n---\n")
-        assert generate_doc_hash(post) == hashlib.sha256(b"").hexdigest()
+    def test_changes_when_path_changes(self):
+        post = frontmatter.loads("---\ntitle: Test\n---\nContent")
+        assert generate_doc_hash(post, Path("a.md")) != generate_doc_hash(post, Path("b.md"))
 
-    def test_hash_ignores_frontmatter_changes(self):
-        # Changing only frontmatter should not change the content hash
+    def test_changes_when_frontmatter_changes(self):
+        path = Path("test.md")
         post_a = frontmatter.loads("---\ntitle: A\n---\nShared content")
         post_b = frontmatter.loads("---\ntitle: B\n---\nShared content")
-        assert generate_doc_hash(post_a) == generate_doc_hash(post_b)
+        assert generate_doc_hash(post_a, path) != generate_doc_hash(post_b, path)
+
+    def test_document_hash_field_excluded_from_hash(self):
+        path = Path("test.md")
+        post_a = frontmatter.loads("---\ntitle: T\ndocument_hash: old\n---\nContent")
+        post_b = frontmatter.loads("---\ntitle: T\ndocument_hash: new\n---\nContent")
+        assert generate_doc_hash(post_a, path) == generate_doc_hash(post_b, path)
 
 
 class TestD2CMSFrontmatterIsChild:
@@ -235,12 +260,6 @@ class TestUpdateFrontmatter:
         update_frontmatter(f, parent_key=None)
         assert frontmatter.load(f).metadata["parent_key"] == ""
 
-    def test_clears_document_hash_when_parent_key_provided(self, tmp_path):
-        f = tmp_path / "child.md"
-        f.write_text("---\ntitle: C\nparent_key: \ndocument_hash: oldhash\n---\n\nC\n")
-        update_frontmatter(f, parent_key=PARENT_KEY)
-        assert frontmatter.load(f).metadata["document_hash"] == ""
-
     def test_does_not_touch_parent_key_when_omitted(self, doc_file):
         # doc_file has no parent_key field — calling without parent_key should not add it
         update_frontmatter(doc_file, wordpress_id=1)
@@ -340,14 +359,15 @@ class TestReparentAndRelocate:
         post = frontmatter.load(tmp_path / "child.md")
         assert post.metadata["parent_key"] == ""
 
-    def test_clears_document_hash_on_children(self, tmp_path):
+    def test_preserves_document_hash_on_reparented_children(self, tmp_path):
         doc = self._make_parent_doc(tmp_path, "section.md", GRANDPARENT_KEY)
         sibling = tmp_path / "section"
         sibling.mkdir()
         self._make_child_doc(sibling, "child.md")
         reparent_and_relocate_children(doc)
         post = frontmatter.load(tmp_path / "child.md")
-        assert post.metadata["document_hash"] == ""
+        # Hash is intentionally not cleared — path change makes it naturally stale
+        assert post.metadata["document_hash"] == "childhash"
 
     def test_does_not_update_files_in_nested_subdirs(self, tmp_path):
         doc = self._make_parent_doc(tmp_path, "section.md", GRANDPARENT_KEY)
