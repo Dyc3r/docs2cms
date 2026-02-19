@@ -44,6 +44,7 @@ services:
       WORDPRESS_DB_NAME: wordpress
     depends_on:
       - wordpress
+      - db
     volumes:
       - wp_files:/var/www/html
     networks:
@@ -52,6 +53,7 @@ services:
     command: >
       sh -c '
       wp core install --path="./" --url="http://localhost:8080" --title="Docs Test" --admin_user="d2cms" --admin_password="d2cms" --admin_email="info@example.com" --skip-email;
+      wp rewrite structure "/%postname%/" --hard;
       '
 
 volumes:
