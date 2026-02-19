@@ -1,6 +1,7 @@
 import argparse
 import logging
 import sys
+from datetime import datetime
 
 import frontmatter
 from dotenv import load_dotenv
@@ -65,7 +66,20 @@ def _cmd_sync(args: argparse.Namespace) -> None:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
-    sync(config)
+    report = sync(config, force=args.force)
+
+
+    if report.has_failures:
+        print(f"{report.failure_count} document(s) failed to sync.", file=sys.stderr)
+        
+        report_dir = config.docs_dir / "d2cms-sync-results"
+        report_dir.mkdir(exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%dT%H%M%S")
+        report_path = report_dir / f"{timestamp}.csv"
+        report.write_csv(report_path)
+    
+        print(f"Sync report written to {report_path}")
+        sys.exit(1)
 
 
 def main() -> None:
@@ -97,6 +111,7 @@ def main() -> None:
 
     sync_cmd = subparsers.add_parser("sync", help="Sync all documents in D2CMS_DOCS_DIR to WordPress")
     sync_cmd.add_argument("--debug", action="store_true", help="Enable debug logging")
+    sync_cmd.add_argument("--force", action="store_true", help="Sync all documents regardless of content hash")
 
     args = parser.parse_args()
 

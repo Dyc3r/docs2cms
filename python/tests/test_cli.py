@@ -270,14 +270,15 @@ class TestCmdDeprecate:
 class TestCmdSync:
     def test_calls_sync_with_config(self, cfg):
         from d2cms.cli import _cmd_sync
+        from d2cms.report import SyncReport
 
         with (
             patch("d2cms.cli.load_config_from_env", return_value=cfg),
-            patch("d2cms.cli.sync") as mock_sync,
+            patch("d2cms.cli.sync", return_value=SyncReport()) as mock_sync,
         ):
-            _cmd_sync(_make_args(debug=False))
+            _cmd_sync(_make_args(debug=False, force=False))
 
-        mock_sync.assert_called_once_with(cfg)
+        mock_sync.assert_called_once_with(cfg, force=False)
 
     def test_exits_with_error_when_config_invalid(self, capsys):
         from d2cms.cli import _cmd_sync
@@ -286,7 +287,7 @@ class TestCmdSync:
             patch("d2cms.cli.load_config_from_env", side_effect=ConfigError("bad config")),
             pytest.raises(SystemExit) as exc_info,
         ):
-            _cmd_sync(_make_args(debug=False))
+            _cmd_sync(_make_args(debug=False, force=False))
 
         assert exc_info.value.code == 1
 
@@ -297,6 +298,6 @@ class TestCmdSync:
             patch("d2cms.cli.load_config_from_env", side_effect=ConfigError("missing env")),
             pytest.raises(SystemExit),
         ):
-            _cmd_sync(_make_args(debug=False))
+            _cmd_sync(_make_args(debug=False, force=False))
 
         assert "missing env" in capsys.readouterr().err

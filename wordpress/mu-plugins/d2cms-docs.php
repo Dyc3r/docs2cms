@@ -42,6 +42,7 @@ add_action('init', function() {
 			0 => 'title',
 			1 => 'editor',
 			2 => 'custom-fields',
+			3 => 'page-attributes',
 		),
 		'taxonomies' => array(
 			0 => 'post_tag',
@@ -63,5 +64,19 @@ add_action('init', function() {
         'single' => true,
         'show_in_rest' => true,
     ));
+
+    /**
+	 * Allow filtering docs by meta_key/meta_value via the REST API.
+     * WordPress drops unrecognised query params before they reach WP_Query,
+     * so we must explicitly pass them through here.
+	 */
+    add_filter('rest_doc_query', function($args, $request) {
+        $meta_key = $request->get_param('meta_key');
+        if ($meta_key) {
+            $args['meta_key']   = sanitize_key($meta_key);
+            $args['meta_value'] = sanitize_text_field($request->get_param('meta_value') ?? '');
+        }
+        return $args;
+    }, 10, 2);
 });
 
