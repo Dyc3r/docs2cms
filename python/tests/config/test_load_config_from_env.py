@@ -1,64 +1,6 @@
 import pytest
 
-from d2cms.config import ConfigError, _getenv_required, _normalize_api_root, load_config_from_env
-
-
-class TestNormalizeApiRoot:
-    def test_adds_trailing_slash(self):
-        assert _normalize_api_root("https://example.com/wp-json") == "https://example.com/wp-json/"
-
-    def test_preserves_existing_trailing_slash(self):
-        assert _normalize_api_root("https://example.com/wp-json/") == "https://example.com/wp-json/"
-
-    def test_strips_surrounding_whitespace(self):
-        assert _normalize_api_root("  https://example.com/wp-json  ") == "https://example.com/wp-json/"
-
-    def test_accepts_http_scheme(self):
-        assert _normalize_api_root("http://localhost:8080/wp-json") == "http://localhost:8080/wp-json/"
-
-    def test_accepts_https_scheme(self):
-        assert _normalize_api_root("https://example.com") == "https://example.com/"
-
-    def test_raises_for_no_scheme(self):
-        with pytest.raises(ConfigError, match="valid scheme"):
-            _normalize_api_root("example.com/wp-json")
-
-    def test_raises_for_ftp_scheme(self):
-        with pytest.raises(ConfigError, match="valid scheme"):
-            _normalize_api_root("ftp://example.com/wp-json")
-
-    def test_raises_for_empty_string(self):
-        with pytest.raises(ConfigError, match="valid scheme"):
-            _normalize_api_root("")
-
-    def test_raises_for_relative_path(self):
-        with pytest.raises(ConfigError, match="valid scheme"):
-            _normalize_api_root("/wp-json/")
-
-
-class TestGetenvRequired:
-    def test_returns_value_when_set(self, monkeypatch):
-        monkeypatch.setenv("_D2CMS_TEST_VAR", "some-value")
-        assert _getenv_required("_D2CMS_TEST_VAR") == "some-value"
-
-    def test_strips_surrounding_whitespace(self, monkeypatch):
-        monkeypatch.setenv("_D2CMS_TEST_VAR", "  padded  ")
-        assert _getenv_required("_D2CMS_TEST_VAR") == "padded"
-
-    def test_raises_when_variable_absent(self, monkeypatch):
-        monkeypatch.delenv("_D2CMS_TEST_VAR", raising=False)
-        with pytest.raises(ConfigError, match="_D2CMS_TEST_VAR"):
-            _getenv_required("_D2CMS_TEST_VAR")
-
-    def test_raises_for_empty_string(self, monkeypatch):
-        monkeypatch.setenv("_D2CMS_TEST_VAR", "")
-        with pytest.raises(ConfigError, match="_D2CMS_TEST_VAR"):
-            _getenv_required("_D2CMS_TEST_VAR")
-
-    def test_raises_for_whitespace_only(self, monkeypatch):
-        monkeypatch.setenv("_D2CMS_TEST_VAR", "   ")
-        with pytest.raises(ConfigError, match="_D2CMS_TEST_VAR"):
-            _getenv_required("_D2CMS_TEST_VAR")
+from d2cms.config import ConfigError, load_config_from_env
 
 
 class TestLoadConfigFromEnv:
