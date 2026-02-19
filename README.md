@@ -35,7 +35,7 @@ cp python/src/.env.example python/src/.env
 | `D2CMS_WP_API_KEY` | Bearer token or password |
 | `D2CMS_WP_API_USER` | WordPress username |
 | `D2CMS_DOCS_DIR` | Path to directory containing your markdown files |
-| `D2CMS_AUTH_MODE` | `token` (default) or `basic` |
+| `D2CMS_AUTH_MODE` | `token` or `basic` (default) |
 
 ## Commands
 
@@ -82,6 +82,18 @@ d2cms sync
 ```
 
 Files whose content hash matches the stored `document_hash` are skipped. New files are created, changed files are updated, and files marked `deprecated: true` are deleted from WordPress and removed locally.
+
+Options:
+
+```bash
+# Bypass the hash check and push all non-deprecated documents regardless of changes
+d2cms sync --force
+
+# Enable debug logging
+d2cms sync --debug
+```
+
+If any documents fail to sync, the command exits with a non-zero status and writes a CSV report to `d2cms-sync-results/{timestamp}.csv` inside `D2CMS_DOCS_DIR`. Successfully synced documents are unaffected — the sync always runs to completion.
 
 
 ## Local WordPress environment
