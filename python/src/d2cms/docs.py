@@ -174,7 +174,7 @@ def reparent_and_relocate_children(doc_path: Path) -> None:
 
 
 
-def to_html(document: Post) -> str:
+def to_html(document: Post, file_path: Path, docs_dir: Path) -> str:
     md = MarkdownIt("commonmark").enable("table")
 
     title = document.metadata.get("title")
@@ -184,7 +184,19 @@ def to_html(document: Post) -> str:
     if lines and title and lines[0].strip() == f"# {title}":
         content = "\n".join(lines[1:]).lstrip()
 
-    # Strip .md extension from internal links
-    content = re.sub(r']\(([./]*[\w/-]+)\.md\)', r'](\1)', content)
+    # Resolve relative .md links to root-relative URLs so WordPress page hierarchy
+    # doesn't cause ../foo.md to resolve to the wrong URL (e.g. /parent/parent).
+    def _rewrite_md_link(match: re.Match) -> str:  # type: ignore[type-arg]
+        link_path = match.group(1)
+        target = (file_path.parent / (link_path + ".md")).resolve()
+        try:
+            parts = list(target.relative_to(docs_dir).with_suffix("").parts)
+            # posts/ and pages/ are not part of the WordPress URL; docs/ is
+            if len(parts) > 1 and parts[0] in ("posts", "pages"):
+                parts = parts[1:]
+            return f"](/{'/'.join(parts)})"
+        except ValueError:
+            return f"]({link_path})"
+    content = re.sub(r']\(([./]*[\w/-]+)\.md\)', _rewrite_md_link, content)
 
     return md.render(content)

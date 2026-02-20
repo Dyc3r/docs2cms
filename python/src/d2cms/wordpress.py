@@ -133,7 +133,7 @@ def _sync_document(file_path: Path, cfg: D2CMSConfig, report: SyncReport, force:
                 "title": metadata.get("title"),
                 "status": "publish",
                 "menu_order": metadata.get("order") or 0,
-                "content": to_html(document),
+                "content": to_html(document, file_path, cfg.docs_dir),
                 "meta": {
                     "document_key": str(metadata.get("document_key")),
                     "document_hash": current_hash,

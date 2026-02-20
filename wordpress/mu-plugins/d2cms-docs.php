@@ -34,6 +34,7 @@ add_action('init', function() {
 		),
 		'public' => true,
 		'hierarchical' => true,
+		'has_archive' => true,
 		'show_in_rest' => true,
 		'rest_base' => 'docs',
 		'menu_position' => 8,
